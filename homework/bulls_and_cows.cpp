@@ -1,107 +1,158 @@
 #include <random>
 #include <std_lib_facilities.h>
+#include <string_view>
 
-string attempt = "0000";
-constexpr int LENGTH_OF_NUMBER = 4;
-vector<int> attemptInt (LENGTH_OF_NUMBER);
-vector<int> answer (LENGTH_OF_NUMBER);
-int bulls = 0;
-int cows = 0;
+constexpr int LENGTH = 4;
 
+int count (const vector<char>& digits, char d)
+{
+  int k{};
 
-auto generate_answer() {
-  // случайный сид
+  for (int i = 0; i < LENGTH; ++i)
+    if (digits[i] == d)
+      ++k;
+
+  return k;
+}
+
+void validate (const vector<char>& number)
+{
+  for (int i = 0; i < LENGTH; ++i)
+  {
+    if (number[i] < '0' || '9' < number[i])
+    {
+      error("the number contains not a digit");
+    }
+
+    if (count(number, number[i]) != 1)
+    {
+      error("digits of the number are not unique");
+    }
+  }
+}
+
+vector<char> user_guess ()
+{
+  vector<char> number(LENGTH);
+  string str = "";
+  cout << "guess the number: ";
+  if (cin >> str)
+  {
+    if (str.size() > LENGTH)
+    {
+      error("the number contains too many characters");
+    }
+    else if (str.size() < LENGTH)
+    {
+      error("the number contains too few characters");
+    }
+    else
+    {
+      for (int i = 0; i < LENGTH; ++i)
+      {
+        number[i] = str[i];
+      }
+    }
+  }
+  else if (!cin)
+  {
+    error("invalid input");
+  }
+  validate(number);
+  return number;
+}
+
+auto generate_number ()
+{
+  vector<char> number(LENGTH);
   std::random_device rd;
-
-  // инициализация генератора
   std::mt19937 gen(rd());
-
-  // целочисленное распределение от 0 до 9
   std::uniform_int_distribution<int> distrib(0, 9);
 
-  for (int i = 0; i < LENGTH_OF_NUMBER; ++i) {
-    answer[i] = distrib(gen);
-  }
-}
-
-
-bool check_attempt() {
-  if (attempt.length() != LENGTH_OF_NUMBER) {
-      return 0;
-  } else {
-    for (char i : attempt) {
-      if (i < '0' || i > '9') {
-        return 0;
-      }
+  int i = 0;
+  while (i < LENGTH)
+  {
+    char n = '0' + distrib(gen);
+    if (count(number, n) == 0)
+    {
+      number[i] = n;
+      ++i;
     }
   }
+  return number;
+}
+
+void start_game ()
+{
+  vector<char> number = generate_number();
+  int bulls{};
+  do
+  {
+    bulls = 0;
+    int cows{};
+    try
+    {
+      vector<char> uguess = user_guess();
+      for (int i = 0; i < static_cast<int>(uguess.size()); ++i)
+      {
+        if (uguess[i] == number[i])
+          ++bulls;
+        else if (count(number, uguess[i]) == 1)
+          ++cows;
+      }
+    }
+    catch (const exception& e)
+    {
+      if (std::string_view(e.what()) == "the number contains not a digit" ||
+          std::string_view(e.what()) ==
+              "digits of the number are not unique" ||
+          std::string_view(e.what()) ==
+              "the number contains too many characters" ||
+          std::string_view(e.what()) ==
+              "the number contains too few characters")
+      {
+        cerr << e.what() << endl;
+        continue;
+      }
+      else
+      {
+        error(e.what());
+      }
+    }
+    cout << bulls << " bull(s) and " << cows << " cow(s)" << endl;
+  }
+  while (bulls != 4);
+}
+
+int main ()
+try
+{
+  cout << "=====================================================\n"
+       << "             The game \"Bulls and Cows\"\n"
+       << "=====================================================\n"
+       << "     Computer sets a number of 4 unique digits.\n"
+       << "                  Try to guess it!\n"
+       << "=====================================================\n"
+       << "         Bull - digit in the correct position\n"
+       << "         Cow - right digit in the wrong place.\n"
+       << "=====================================================\n\n";
+  char answer = 'n';
+  do
+  {
+    start_game();
+    cout << "game is over" << endl;
+    cout << "play again? (y/n) ";
+    cin >> answer;
+  }
+  while (answer == 'y' || answer == 'Y');
+}
+catch (exception& e)
+{
+  cerr << e.what() << endl;
   return 1;
 }
-
-auto transform_attempt() {
-  vector<int> attemptInt(LENGTH_OF_NUMBER);
-  for (int i = 0; i < LENGTH_OF_NUMBER; ++i) {
-    attemptInt[i] = attempt[i] - '0';
-  }
-}
-
-
-auto check() {
-  bulls = 0;
-  cows = 0;
-  vector<int> allNums(10, 0);
-  for (int i = 0; i < LENGTH_OF_NUMBER; ++i) {
-    ++allNums[answer[i]];
-    if (attemptInt[i] == answer[i]) {
-      ++bulls;
-      --allNums[attemptInt[i]];
-    }
-  }
-  for (int i = 0; i < LENGTH_OF_NUMBER; ++i) {
-    if ((allNums[attemptInt[i]] > 0) && (attemptInt[i] != answer[i])) {
-      --allNums[attemptInt[i]];
-      ++cows;
-    }
-  }
-}
-
-
-int main() {
-  bool guessed = false;
-
-  cout << "=====================================================\n"
-      << "             The game \"Bulls and Cows\"\n"
-      << "=====================================================\n"
-      << "     The computer guessed a 4 unique digit number\n"
-      << "                      Guess it!\n"
-      << "=====================================================\n"
-      << "         Bull - digit in the correct position\n"
-      << " Cow - the digit is present, but in the wrong place.\n"
-      << "=====================================================\n\n";
-
-  try {
-    generate_answer();
-    while (!guessed) {
-      cout << "Enter your attempt: ";
-      cin >> attempt;
-      if (check_attempt()) {
-        transform_attempt();
-        check();
-        if (bulls == LENGTH_OF_NUMBER) {
-          guessed = true;
-          cout << "You guessed the number!\n";
-        } else {
-          cout << "Bulls: " << bulls << ", Cows: " << cows << std::endl;
-        }
-      } else {
-        cout << "Your attempt must be 4 digits long.\n";
-      }
-    }
-  } catch (exception& e) {
-    cout << "Exception: " << e.what() << std::endl;
-    return 1;
-  }
-  cout << "Enter anything to exit\n";
-  cin >> attempt;
-  return 0;
+catch (...)
+{
+  cerr << "Oops, something went wrong..." << endl;
+  return 2;
 }
