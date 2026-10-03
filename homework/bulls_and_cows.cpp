@@ -1,10 +1,101 @@
-#include <random>
 #include <std_lib_facilities.h>
 #include <string_view>
 
 constexpr int LENGTH = 4;
 
-int count (const vector<char>& digits, char d)
+auto generate_number ()
+{
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> dis(1000, 9999);
+  return dis(gen);
+}
+
+struct num
+{
+  vector<int> number = vector<int>(LENGTH);
+
+  num (int a) { update(a); }
+
+  num (vector<int> a) { number = a; }
+
+  num (string a) { update(a); }
+
+  void update (int a)
+  {
+    for (int i{0}; i < LENGTH; ++i)
+    {
+      number[i] = a / static_cast<int>(pow(10, LENGTH - 1 - i)) % 10;
+    }
+  }
+
+  void update (string a)
+  {
+    for (int i{0}; i < LENGTH; ++i)
+    {
+      number[i] = a[i] - '0';
+    }
+  }
+
+  bool validate ()
+  {
+    for (int i{0}; i < LENGTH; ++i)
+    {
+      for (int j{i + 1}; j < LENGTH; ++j)
+      {
+        if (number[i] == number[j])
+        {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  string toString ()
+  {
+    string result = "";
+    for (int i{0}; i < LENGTH; ++i)
+    {
+      result += to_string(number[i]);
+    }
+    return result;
+  }
+
+  bool operator== (const num& other)
+  {
+    for (int i{0}; i < LENGTH; ++i)
+    {
+      if (number[i] != other.number[i])
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+};
+
+struct solver
+
+{
+  vector<num> falseNumbers;
+  num currNumber{generate_number()};
+
+  string do_prediction ()
+  {
+    while (find(falseNumbers.begin(), falseNumbers.end(), currNumber) !=
+               falseNumbers.end() ||
+           !currNumber.validate())
+    {
+      currNumber.update(generate_number());
+    }
+
+    falseNumbers.push_back(currNumber);
+    return currNumber.toString();
+  }
+};
+
+int count (const string& digits, char d)
 {
   int k{};
 
@@ -15,25 +106,32 @@ int count (const vector<char>& digits, char d)
   return k;
 }
 
-void validate (const vector<char>& number)
+void countBullsAndCows (vector<int>& bullsCows, num refNum, num compNum)
 {
-  for (int i = 0; i < LENGTH; ++i)
-  {
-    if (number[i] < '0' || '9' < number[i])
-    {
-      error("the number contains not a digit");
-    }
+  bullsCows[0] = 0;
+  bullsCows[1] = 0;
 
-    if (count(number, number[i]) != 1)
+  for (int i{0}; i < LENGTH; ++i)
+  {
+    for (int j{0}; j < LENGTH; ++j)
     {
-      error("digits of the number are not unique");
+      if (refNum.number[i] == compNum.number[j])
+      {
+        if (i == j)
+        {
+          ++bullsCows[0];
+        }
+        else
+        {
+          ++bullsCows[1];
+        }
+      }
     }
   }
 }
 
-vector<char> user_guess ()
+num user_guess ()
 {
-  vector<char> number(LENGTH);
   string str = "";
   cout << "guess the number: ";
   if (cin >> str)
@@ -48,58 +146,41 @@ vector<char> user_guess ()
     }
     else
     {
-      for (int i = 0; i < LENGTH; ++i)
+      for (int i{0}; i < LENGTH; ++i)
       {
-        number[i] = str[i];
+        if (str[i] < '0' || '9' < str[i])
+        {
+          error("the number contains not a digit");
+        }
+      }
+      num number{str};
+      if (number.validate())
+      {
+        return number;
       }
     }
   }
-  else if (!cin)
-  {
-    error("invalid input");
-  }
-  validate(number);
-  return number;
-}
-
-auto generate_number ()
-{
-  vector<char> number(LENGTH);
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<int> distrib(0, 9);
-
-  int i = 0;
-  while (i < LENGTH)
-  {
-    char n = '0' + distrib(gen);
-    if (count(number, n) == 0)
-    {
-      number[i] = n;
-      ++i;
-    }
-  }
-  return number;
+  error("invalid input");
 }
 
 void start_game ()
 {
-  vector<char> number = generate_number();
-  int bulls{};
+  solver bot;
+  num botNumber{0000};
   do
   {
-    bulls = 0;
-    int cows{};
+    num botNumber{generate_number()};
+  }
+  while (!botNumber.validate());
+
+  vector<int> bullsCows(2);
+
+  do
+  {
     try
     {
-      vector<char> uguess = user_guess();
-      for (int i = 0; i < static_cast<int>(uguess.size()); ++i)
-      {
-        if (uguess[i] == number[i])
-          ++bulls;
-        else if (count(number, uguess[i]) == 1)
-          ++cows;
-      }
+      num uguess = user_guess();
+      countBullsAndCows(bullsCows, botNumber, uguess);
     }
     catch (const exception& e)
     {
@@ -119,9 +200,40 @@ void start_game ()
         error(e.what());
       }
     }
-    cout << bulls << " bull(s) and " << cows << " cow(s)" << endl;
+    cout << bullsCows[0] << " bull(s) and " << bullsCows[1] << " cow(s)"
+         << endl;
+
+    if (bullsCows[0] != 4)
+    {
+      cout << "My move: " << bot.do_prediction() << "? (y/n): ";
+      while (true)
+      {
+        string t;
+        cin >> t;
+
+        if (t == "y")
+        {
+          std::cout << "bot win, ha-ha" << std::endl;
+          return;
+        }
+        if (t == "n")
+        {
+          break;
+        }
+        std::cout << "invalid answer. (y/n): ";
+      }
+      vector<int> botBullsCows{0, 0};
+      cout << "Bulls: ";
+      cin >> botBullsCows[0];
+      cout << "Cows: ";
+      cin >> botBullsCows[1];
+    }
+    else
+    {
+      cout << "you win!" << endl;
+    }
   }
-  while (bulls != 4);
+  while (bullsCows[0] != 4);
 }
 
 int main ()
@@ -140,7 +252,6 @@ try
   do
   {
     start_game();
-    cout << "game is over" << endl;
     cout << "play again? (y/n) ";
     cin >> answer;
   }
